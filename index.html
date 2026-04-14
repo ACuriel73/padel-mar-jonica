@@ -237,7 +237,7 @@
     const FLOORS = ['B', '1', '2', 'At.'];
     const DOORS_DEFAULT = ['1', '2', '3'];
     const DOORS_BLOCK_D_TOP = ['1', '2'];
-    const PLAY_HOURS = Array.from({ length: 15 }, (_, i) => `${String(i + 8).padStart(2, '0')}:00`);
+    const PLAY_HOURS = ['10:00', '11:00', '12:00', '13:00', '14:00', '17:00', '18:00', '19:00', '20:00', '21:00'];
 
     const AUTHORIZED_HOMES = (() => {
       const homes = [];
@@ -456,10 +456,18 @@
           }
 
           const id = btn.getAttribute('data-id');
-          const { error } = await supabaseClient.from('reservas').delete().eq('id', id);
+          const { data, error } = await supabaseClient
+            .from('reservas')
+            .delete()
+            .eq('id', id)
+            .select();
 
           if (error) {
             return showToast('No se pudo eliminar la reserva.', 'error');
+          }
+
+          if (!data || data.length === 0) {
+            return showToast('No tienes permiso para eliminar esta reserva.', 'error');
           }
 
           await syncRemoteData();
