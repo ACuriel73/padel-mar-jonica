@@ -71,7 +71,7 @@
 
     <section class="grid grid-cols-1 xl:grid-cols-3 gap-6">
       <div class="xl:col-span-2 space-y-6">
-        <div class="glass rounded-3xl p-5 sm:p-6">
+        <div id="authorizedHomesCard" class="glass rounded-3xl p-5 sm:p-6 hidden">
           <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h2 class="text-2xl font-bold">Viviendas habilitadas 🏘️</h2>
@@ -280,6 +280,7 @@
     const blockedCount = $('blockedCount');
     const nowBox = $('nowBox');
     const toast = $('toast');
+    const authorizedHomesCard = $('authorizedHomesCard');
 
     function showToast(message, type = 'ok') {
       toast.textContent = message;
@@ -616,18 +617,25 @@
       showToast('Vivienda desbloqueada.');
     }
 
+    function updateAuthorizedHomesVisibility() {
+      const adminCardVisible = !$('adminCard').classList.contains('hidden');
+      authorizedHomesCard.classList.toggle('hidden', !adminCardVisible);
+    }
+
     function showAdminCard() {
       $('adminCard').classList.remove('hidden');
       $('adminPanel').classList.remove('hidden');
       $('toggleAdminBtn').textContent = 'Cerrar';
       applyAdminSession();
       renderBookings();
+      updateAuthorizedHomesVisibility();
     }
 
     function hideAdminCard() {
       $('adminCard').classList.add('hidden');
       $('adminPanel').classList.add('hidden');
       $('toggleAdminBtn').textContent = 'Cerrar';
+      updateAuthorizedHomesVisibility();
     }
 
     function toggleAdminPanel() {
@@ -774,6 +782,7 @@
       setDefaultDate();
       restoreSavedUrl();
       applyAdminSession();
+      updateAuthorizedHomesVisibility();
       await connectSupabase();
 
       if (window.location.hash === '#admin') {
