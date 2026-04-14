@@ -25,7 +25,6 @@
     .slot-btn:disabled { cursor: not-allowed; opacity: 0.55; }
     .big-emoji { font-size: clamp(2rem, 6vw, 4rem); line-height: 1; }
 
-    /* Hotspot invisible para admin */
     #adminHotspot {
       position: fixed;
       right: 8px;
@@ -419,6 +418,7 @@
     }
 
     function renderBookings() {
+      const isAdmin = localStorage.getItem(STORAGE_KEYS.adminSession) === '1';
       const bookings = [...bookingsCache].sort((a, b) => new Date(a.slot_iso) - new Date(b.slot_iso));
 
       if (!bookings.length) {
@@ -434,17 +434,34 @@
               <div class="text-lg font-black text-slate-900">${formatDateHuman(b.fecha)} · ${b.hora}</div>
               <div class="text-sm text-slate-600 mt-1">🏠 ${formatHome(b.bloque, normalizeFloor(b.piso), b.puerta)}</div>
             </div>
-            <button data-id="${b.id}" class="delete-booking rounded-xl bg-rose-100 text-rose-700 px-3 py-2 text-xs font-bold hover:bg-rose-200 transition">Eliminar</button>
+            ${isAdmin ? `
+              <button data-id="${b.id}" class="delete-booking rounded-xl bg-rose-100 text-rose-700 px-3 py-2 text-xs font-bold hover:bg-rose-200 transition">
+                Eliminar
+              </button>
+            ` : ''}
           </div>
         </div>
       `).join('');
 
+      if (!isAdmin) return;
+
       document.querySelectorAll('.delete-booking').forEach(btn => {
         btn.addEventListener('click', async () => {
-          if (!supabaseClient) return showToast('La conexión no está disponible.', 'error');
+          if (localStorage.getItem(STORAGE_KEYS.adminSession) !== '1') {
+            return showToast('Solo el administrador puede eliminar reservas.', 'error');
+          }
+
+          if (!supabaseClient) {
+            return showToast('La conexión no está disponible.', 'error');
+          }
+
           const id = btn.getAttribute('data-id');
           const { error } = await supabaseClient.from('reservas').delete().eq('id', id);
-          if (error) return showToast('No se pudo eliminar la reserva.', 'error');
+
+          if (error) {
+            return showToast('No se pudo eliminar la reserva.', 'error');
+          }
+
           await syncRemoteData();
           showToast('Reserva eliminada.');
         });
@@ -624,6 +641,7 @@
       $('adminPanel').classList.remove('hidden');
       $('toggleAdminBtn').textContent = 'Cerrar';
       applyAdminSession();
+      renderBookings();
     }
 
     function hideAdminCard() {
@@ -668,6 +686,7 @@
       localStorage.setItem(STORAGE_KEYS.adminSession, '1');
       $('adminPassword').value = '';
       applyAdminSession();
+      renderBookings();
       showToast('Acceso de administrador concedido.');
     }
 
@@ -735,6 +754,7 @@
       $('adminLoginBtn').addEventListener('click', loginAdmin);
       $('blockHomeBtn').addEventListener('click', blockSelectedHome);
       $('unblockHomeBtn').addEventListener('click', unblockSelectedHome);
+
       $('refreshBtn').addEventListener('click', async () => {
         if (!supabaseClient) return showToast('La conexión no está disponible.', 'error');
         await syncRemoteData();
