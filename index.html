@@ -24,6 +24,20 @@
     }
     .slot-btn:disabled { cursor: not-allowed; opacity: 0.55; }
     .big-emoji { font-size: clamp(2rem, 6vw, 4rem); line-height: 1; }
+
+    /* Hotspot invisible para admin */
+    #adminHotspot {
+      position: fixed;
+      right: 8px;
+      bottom: 8px;
+      width: 34px;
+      height: 34px;
+      opacity: 0.01;
+      z-index: 60;
+      border-radius: 9999px;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
   </style>
 </head>
 <body class="text-slate-800">
@@ -38,9 +52,6 @@
               <p class="text-lg md:text-xl text-slate-600 font-medium">Urbanización Mar Jónica 🌴</p>
             </div>
           </div>
-          <p id="secretAdminTrigger" class="text-slate-600 max-w-3xl cursor-default select-none">
-            
-          </p>
         </div>
         <div class="grid grid-cols-3 gap-3 text-center">
           <div class="glass rounded-2xl px-4 py-3">
@@ -52,8 +63,8 @@
             <div class="text-xs sm:text-sm font-semibold mt-1">1 reserva/día</div>
           </div>
           <div class="glass rounded-2xl px-4 py-3">
-            <div class="text-3xl">☁️</div>
-            <div class="text-xs sm:text-sm font-semibold mt-1">Datos online</div>
+            <div class="text-3xl">📱</div>
+            <div class="text-xs sm:text-sm font-semibold mt-1">Responsive</div>
           </div>
         </div>
       </div>
@@ -61,32 +72,6 @@
 
     <section class="grid grid-cols-1 xl:grid-cols-3 gap-6">
       <div class="xl:col-span-2 space-y-6">
-        
-
-          <div class="mt-4 text-sm text-slate-600 bg-slate-50 border border-slate-200 rounded-2xl p-4 whitespace-pre-line">Antes de conectar, crea estas tablas en Supabase:
-
-1) Tabla: reservas
-- id (uuid, primary key, default gen_random_uuid())
-- bloque (text)
-- piso (text)
-- puerta (text)
-- fecha (date)
-- hora (text)
-- slot_iso (text)
-- created_at (timestamptz, default now())
-
-2) Tabla: viviendas_bloqueadas
-- id (uuid, primary key, default gen_random_uuid())
-- bloque (text)
-- piso (text)
-- puerta (text)
-- created_at (timestamptz, default now())
-
-3) Activa permisos INSERT/SELECT/DELETE para la clave anon en ambas tablas.
-
-La contraseña de administrador sigue en el código para simplicidad. Si luego quieres seguridad real, la siguiente mejora es añadir Supabase Auth.</div>
-        </div>
-
         <div class="glass rounded-3xl p-5 sm:p-6">
           <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
@@ -176,18 +161,18 @@ La contraseña de administrador sigue en el código para simplicidad. Si luego q
       <aside class="space-y-6">
         <div class="glass rounded-3xl p-5 sm:p-6">
           <h2 class="text-2xl font-bold">Reservas activas 🎯</h2>
-          <p class="text-slate-600 mt-1">Estas reservas vienen de Supabase y las comparten todos los usuarios.</p>
+          <p class="text-slate-600 mt-1">Aquí puedes consultar las reservas actuales.</p>
           <div id="bookingsList" class="mt-4 space-y-3"></div>
         </div>
 
         <div class="glass rounded-3xl p-5 sm:p-6 hidden" id="adminCard">
           <div class="flex items-center justify-between gap-3">
             <h2 class="text-2xl font-bold">Administrador 🔐</h2>
-            <button id="toggleAdminBtn" class="rounded-2xl bg-slate-900 text-white px-4 py-2 font-bold hover:scale-[1.02] transition">Abrir</button>
+            <button id="toggleAdminBtn" class="rounded-2xl bg-slate-900 text-white px-4 py-2 font-bold hover:scale-[1.02] transition">Cerrar</button>
           </div>
           <p class="text-slate-600 mt-1">Bloquea o desbloquea viviendas para que no puedan reservar.</p>
 
-          <div id="adminPanel" class="mt-4 hidden space-y-4">
+          <div id="adminPanel" class="mt-4 space-y-4">
             <div id="adminLoginBox" class="space-y-3">
               <label class="block">
                 <span class="text-sm font-semibold text-slate-700">Contraseña de administrador</span>
@@ -197,10 +182,6 @@ La contraseña de administrador sigue en el código para simplicidad. Si luego q
             </div>
 
             <div id="adminControls" class="hidden space-y-4">
-              <div class="rounded-2xl bg-indigo-50 border border-indigo-200 p-4 text-sm text-indigo-900">
-                Esta protección es básica. Para seguridad real, la mejora siguiente es usar usuarios de Supabase con permisos de administrador.
-              </div>
-
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <select id="adminBlock" class="rounded-2xl border border-slate-300 px-4 py-3 bg-white"></select>
                 <select id="adminFloor" class="rounded-2xl border border-slate-300 px-4 py-3 bg-white"></select>
@@ -239,6 +220,8 @@ La contraseña de administrador sigue en el código para simplicidad. Si luego q
     </section>
   </div>
 
+  <button id="adminHotspot" aria-label="Acceso oculto administrador" type="button"></button>
+
   <div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 hidden px-5 py-3 rounded-2xl text-white font-bold shadow-2xl z-50"></div>
 
   <script>
@@ -272,6 +255,8 @@ La contraseña de administrador sigue en el código para simplicidad. Si luego q
     let supabaseClient = null;
     let bookingsCache = [];
     let blockedHomesCache = [];
+    let adminTapCount = 0;
+    let adminTapTimer = null;
 
     const $ = (id) => document.getElementById(id);
     const reservationDateInput = $('reservationDate');
@@ -361,12 +346,6 @@ La contraseña de administrador sigue en el código para simplicidad. Si luego q
       blockedCount.textContent = blockedHomesCache.length;
     }
 
-    function setConnectionStatus(text, ok = false) {
-      const el = $('connectionStatus');
-      el.textContent = text;
-      el.className = `text-sm font-bold ${ok ? 'text-emerald-700' : 'text-sky-700'}`;
-    }
-
     function initSelectors() {
       const blockOptions = '<option value="">Selecciona bloque</option>' + BLOCKS.map(v => `<option value="${v}">${v}</option>`).join('');
       const floorOptions = '<option value="">Selecciona piso</option>' + FLOORS.map(v => `<option value="${v}">${v}</option>`).join('');
@@ -380,7 +359,7 @@ La contraseña de administrador sigue en el código para simplicidad. Si luego q
 
     function updateDoorOptions() {
       const block = blockSelect.value;
-      const floor = blockSelect.value ? floorSelect.value : '';
+      const floor = floorSelect.value;
       const doors = block === 'D' && (floor === '2' || floor === 'At.') ? DOORS_BLOCK_D_TOP : DOORS_DEFAULT;
       const current = doorSelect.value;
       doorSelect.innerHTML = '<option value="">Selecciona puerta</option>' + doors.map(v => `<option value="${v}">${v}</option>`).join('');
@@ -399,28 +378,38 @@ La contraseña de administrador sigue en el código para simplicidad. Si luego q
     function renderSlots() {
       const selectedDate = reservationDateInput.value;
       slotsContainer.innerHTML = '';
+
       if (!selectedDate) {
         slotsContainer.innerHTML = '<div class="col-span-full text-sm text-slate-500">Selecciona una fecha para ver las horas disponibles.</div>';
         return;
       }
 
       let allowedCount = 0;
+
       PLAY_HOURS.forEach(hour => {
         const slotDate = combineDateAndHour(selectedDate, hour);
         const withinRange = isSlotWithinAllowedRange(slotDate);
         const booked = slotAlreadyBooked(selectedDate, hour);
+
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = `slot-btn rounded-2xl px-4 py-3 text-sm font-bold border transition ${booked ? 'bg-rose-100 text-rose-700 border-rose-200' : withinRange ? 'bg-emerald-100 text-emerald-800 border-emerald-200 hover:scale-[1.02]' : 'bg-slate-100 text-slate-400 border-slate-200'}`;
+        btn.className = `slot-btn rounded-2xl px-4 py-3 text-sm font-bold border transition ${
+          booked ? 'bg-rose-100 text-rose-700 border-rose-200' :
+          withinRange ? 'bg-emerald-100 text-emerald-800 border-emerald-200 hover:scale-[1.02]' :
+          'bg-slate-100 text-slate-400 border-slate-200'
+        }`;
         btn.textContent = booked ? `${hour} · Ocupada` : hour;
         btn.disabled = !withinRange || booked;
+
         if (withinRange) allowedCount++;
+
         btn.addEventListener('click', () => {
           selectedSlotISO = `${selectedDate}T${hour}`;
           selectedSlotText.textContent = `${formatDateHuman(selectedDate)} · ${hour}`;
           document.querySelectorAll('.slot-btn').forEach(el => el.classList.remove('ring-4', 'ring-emerald-300'));
           btn.classList.add('ring-4', 'ring-emerald-300');
         });
+
         slotsContainer.appendChild(btn);
       });
 
@@ -431,10 +420,12 @@ La contraseña de administrador sigue en el código para simplicidad. Si luego q
 
     function renderBookings() {
       const bookings = [...bookingsCache].sort((a, b) => new Date(a.slot_iso) - new Date(b.slot_iso));
+
       if (!bookings.length) {
         bookingsList.innerHTML = '<div class="rounded-2xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">Aún no hay reservas activas.</div>';
         return;
       }
+
       bookingsList.innerHTML = bookings.map((b, index) => `
         <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div class="flex items-start justify-between gap-3">
@@ -450,7 +441,7 @@ La contraseña de administrador sigue en el código para simplicidad. Si luego q
 
       document.querySelectorAll('.delete-booking').forEach(btn => {
         btn.addEventListener('click', async () => {
-          if (!supabaseClient) return showToast('Primero conecta Supabase.', 'error');
+          if (!supabaseClient) return showToast('La conexión no está disponible.', 'error');
           const id = btn.getAttribute('data-id');
           const { error } = await supabaseClient.from('reservas').delete().eq('id', id);
           if (error) return showToast('No se pudo eliminar la reserva.', 'error');
@@ -462,11 +453,13 @@ La contraseña de administrador sigue en el código para simplicidad. Si luego q
 
     function renderBlockedHomes() {
       const container = $('blockedHomesList');
+
       if (!blockedHomesCache.length) {
         container.innerHTML = '<div class="rounded-2xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">No hay viviendas bloqueadas.</div>';
         refreshCounters();
         return;
       }
+
       container.innerHTML = blockedHomesCache.map(home => `
         <div class="rounded-2xl border border-amber-200 bg-amber-50 p-3 flex items-center justify-between gap-3">
           <span class="font-bold text-amber-900">${formatHome(home.bloque, normalizeFloor(home.piso), home.puerta)}</span>
@@ -476,7 +469,7 @@ La contraseña de administrador sigue en el código para simplicidad. Si luego q
 
       document.querySelectorAll('.quick-unblock').forEach(btn => {
         btn.addEventListener('click', async () => {
-          if (!supabaseClient) return showToast('Primero conecta Supabase.', 'error');
+          if (!supabaseClient) return showToast('La conexión no está disponible.', 'error');
           const id = btn.getAttribute('data-id');
           const { error } = await supabaseClient.from('viviendas_bloqueadas').delete().eq('id', id);
           if (error) return showToast('No se pudo desbloquear.', 'error');
@@ -484,27 +477,33 @@ La contraseña de administrador sigue en el código para simplicidad. Si luego q
           showToast('Vivienda desbloqueada.');
         });
       });
+
       refreshCounters();
     }
 
     function validateBooking(block, floor, door, slotISO) {
-      if (!supabaseClient) return 'Primero debes conectar Supabase.';
+      if (!supabaseClient) return 'La app no ha podido conectar con la base de datos.';
       if (!slotISO) return 'Debes seleccionar una hora.';
       if (!block || !floor || !door) return 'Debes completar bloque, piso y puerta.';
       if (block === 'D' && (floor === '2' || floor === 'At.') && !['1', '2'].includes(door)) return 'En el bloque D, plantas 2 y At. solo admiten puerta 1 o 2.';
       if (!homeIsAuthorized(block, floor, door)) return 'La vivienda indicada no figura entre las viviendas autorizadas.';
       if (homeIsBlocked(block, floor, door)) return 'Esta vivienda está bloqueada por administración y no puede reservar.';
+
       const [dateString, time] = slotISO.split('T');
       const slotDate = combineDateAndHour(dateString, time);
+
       if (!isSlotWithinAllowedRange(slotDate)) return 'Solo se puede reservar con un máximo de 24 horas de antelación.';
       if (sameHomeAlreadyBookedSameDay(block, floor, door, dateString)) return 'Cada propietario solo puede tener una reserva al día.';
       if (slotAlreadyBooked(dateString, time)) return 'Esa hora ya está reservada.';
+
       return null;
     }
 
     async function syncRemoteData() {
       if (!supabaseClient) return;
+
       const today = getDateStringLocal(new Date());
+
       const { data: bookings, error: bookingsError } = await supabaseClient
         .from('reservas')
         .select('*')
@@ -514,7 +513,7 @@ La contraseña de administrador sigue en el código para simplicidad. Si luego q
 
       if (bookingsError) {
         console.error(bookingsError);
-        showToast('Error al leer reservas de Supabase.', 'error');
+        showToast('Error al leer reservas.', 'error');
         return;
       }
 
@@ -527,7 +526,7 @@ La contraseña de administrador sigue en el código para simplicidad. Si luego q
 
       if (blockedError) {
         console.error(blockedError);
-        showToast('Error al leer bloqueos de Supabase.', 'error');
+        showToast('Error al leer bloqueos.', 'error');
         return;
       }
 
@@ -540,27 +539,18 @@ La contraseña de administrador sigue en el código para simplicidad. Si luego q
     }
 
     async function connectSupabase() {
-      if (!SUPABASE_URL || !SUPABASE_ANON_KEY || SUPABASE_URL.includes('PON_AQUI') || SUPABASE_ANON_KEY.includes('PON_AQUI')) {
-        setConnectionStatus('Falta configurar Supabase en el código');
-        showToast('Debes rellenar la URL y la anon key de Supabase dentro del código HTML.', 'error');
-        return;
-      }
       try {
         supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        setConnectionStatus('Conectando...');
         await syncRemoteData();
-        setConnectionStatus('Conectado a Supabase ✅', true);
       } catch (error) {
         console.error(error);
-        setConnectionStatus('Error de conexión');
-        showToast('No se pudo conectar con Supabase.', 'error');
+        showToast('No se pudo conectar con la base de datos.', 'error');
       }
     }
 
-    
-
     async function addBooking(block, floor, door, slotISO) {
       const [fecha, hora] = slotISO.split('T');
+
       const { error } = await supabaseClient.from('reservas').insert([{
         bloque: block,
         piso: floor,
@@ -569,10 +559,12 @@ La contraseña de administrador sigue en el código para simplicidad. Si luego q
         hora,
         slot_iso: slotISO,
       }]);
+
       if (error) {
         console.error(error);
         throw error;
       }
+
       await syncRemoteData();
     }
 
@@ -585,59 +577,80 @@ La contraseña de administrador sigue en el código para simplicidad. Si luego q
     }
 
     async function blockSelectedHome() {
-      if (!supabaseClient) return showToast('Primero conecta Supabase.', 'error');
+      if (!supabaseClient) return showToast('La conexión no está disponible.', 'error');
+
       const block = $('adminBlock').value;
       const floor = $('adminFloor').value;
       const door = $('adminDoor').value;
+
       if (!block || !floor || !door) return showToast('Selecciona bloque, piso y puerta.', 'error');
       if (!homeIsAuthorized(block, floor, door)) return showToast('Esa vivienda no existe en el listado autorizado.', 'error');
       if (homeIsBlocked(block, floor, door)) return showToast('La vivienda ya está bloqueada.', 'error');
-      const { error } = await supabaseClient.from('viviendas_bloqueadas').insert([{ bloque: block, piso: floor, puerta: door }]);
+
+      const { error } = await supabaseClient
+        .from('viviendas_bloqueadas')
+        .insert([{ bloque: block, piso: floor, puerta: door }]);
+
       if (error) return showToast('No se pudo bloquear la vivienda.', 'error');
+
       await syncRemoteData();
       showToast('Vivienda bloqueada.');
     }
 
     async function unblockSelectedHome() {
-      if (!supabaseClient) return showToast('Primero conecta Supabase.', 'error');
+      if (!supabaseClient) return showToast('La conexión no está disponible.', 'error');
+
       const block = $('adminBlock').value;
       const floor = $('adminFloor').value;
       const door = $('adminDoor').value;
+
       if (!block || !floor || !door) return showToast('Selecciona bloque, piso y puerta.', 'error');
+
       const { error } = await supabaseClient
         .from('viviendas_bloqueadas')
         .delete()
         .eq('bloque', block)
         .eq('piso', floor)
         .eq('puerta', door);
+
       if (error) return showToast('No se pudo desbloquear la vivienda.', 'error');
+
       await syncRemoteData();
       showToast('Vivienda desbloqueada.');
     }
 
-    function openAdminPanel() {
+    function showAdminCard() {
       $('adminCard').classList.remove('hidden');
-      $('adminPanel').classList.toggle('hidden');
-      $('toggleAdminBtn').textContent = $('adminPanel').classList.contains('hidden') ? 'Abrir' : 'Cerrar';
+      $('adminPanel').classList.remove('hidden');
+      $('toggleAdminBtn').textContent = 'Cerrar';
+      applyAdminSession();
     }
 
-    let secretTapCount = 0;
-    let secretTapTimer = null;
-
-    function handleSecretAdminTrigger() {
-      secretTapCount += 1;
-      clearTimeout(secretTapTimer);
-      secretTapTimer = setTimeout(() => {
-        secretTapCount = 0;
-      }, 1800);
-
-      if (secretTapCount >= 5) {
-        secretTapCount = 0;
-        $('adminCard').classList.remove('hidden');
-        $('adminPanel').classList.remove('hidden');
-        $('toggleAdminBtn').textContent = 'Cerrar';
-        applyAdminSession();
+    function hideAdminCard() {
       $('adminCard').classList.add('hidden');
+      $('adminPanel').classList.add('hidden');
+      $('toggleAdminBtn').textContent = 'Cerrar';
+    }
+
+    function toggleAdminPanel() {
+      if ($('adminCard').classList.contains('hidden')) {
+        showAdminCard();
+      } else {
+        hideAdminCard();
+      }
+    }
+
+    function handleAdminHotspotTap() {
+      adminTapCount += 1;
+      clearTimeout(adminTapTimer);
+
+      adminTapTimer = setTimeout(() => {
+        adminTapCount = 0;
+      }, 1600);
+
+      if (adminTapCount >= 3) {
+        adminTapCount = 0;
+        showAdminCard();
         showToast('Panel de administrador visible.');
       }
     }
@@ -651,6 +664,7 @@ La contraseña de administrador sigue en el código para simplicidad. Si luego q
     function loginAdmin() {
       const password = $('adminPassword').value;
       if (password !== ADMIN_PASSWORD) return showToast('Contraseña incorrecta.', 'error');
+
       localStorage.setItem(STORAGE_KEYS.adminSession, '1');
       $('adminPassword').value = '';
       applyAdminSession();
@@ -663,12 +677,16 @@ La contraseña de administrador sigue en el código para simplicidad. Si luego q
       if (saved) generateQr();
     }
 
-    
-
     function generateQr() {
       const url = publicUrlInput.value.trim();
       if (!url) return showToast('Introduce una URL pública para generar el QR.', 'error');
-      try { new URL(url); } catch { return showToast('La URL no es válida.', 'error'); }
+
+      try {
+        new URL(url);
+      } catch {
+        return showToast('La URL no es válida.', 'error');
+      }
+
       localStorage.setItem(STORAGE_KEYS.publicUrl, url);
       const qrContainer = $('qrcode');
       qrContainer.innerHTML = '';
@@ -680,7 +698,9 @@ La contraseña de administrador sigue en el código para simplicidad. Si luego q
       const img = document.querySelector('#qrcode img');
       const canvas = document.querySelector('#qrcode canvas');
       const source = img?.src || canvas?.toDataURL('image/png');
+
       if (!source) return showToast('Primero genera el QR.', 'error');
+
       const link = document.createElement('a');
       link.href = source;
       link.download = 'qr-mar-jonica.png';
@@ -701,34 +721,39 @@ La contraseña de administrador sigue en el código para simplicidad. Si luego q
       floorSelect.addEventListener('change', updateDoorOptions);
       $('adminBlock').addEventListener('change', updateAdminDoorOptions);
       $('adminFloor').addEventListener('change', updateAdminDoorOptions);
+
       reservationDateInput.addEventListener('change', () => {
         selectedSlotISO = null;
         selectedSlotText.textContent = 'Todavía no has elegido hora';
         renderSlots();
       });
+
       $('resetSelectionBtn').addEventListener('click', clearSelection);
       $('generateQrBtn').addEventListener('click', generateQr);
       $('downloadQrBtn').addEventListener('click', downloadQr);
-      $('toggleAdminBtn').addEventListener('click', () => { openAdminPanel(); applyAdminSession(); });
-      $('secretAdminTrigger').addEventListener('click', handleSecretAdminTrigger);
+      $('toggleAdminBtn').addEventListener('click', toggleAdminPanel);
       $('adminLoginBtn').addEventListener('click', loginAdmin);
       $('blockHomeBtn').addEventListener('click', blockSelectedHome);
       $('unblockHomeBtn').addEventListener('click', unblockSelectedHome);
-      
-      
       $('refreshBtn').addEventListener('click', async () => {
-        if (!supabaseClient) return showToast('Primero conecta Supabase.', 'error');
+        if (!supabaseClient) return showToast('La conexión no está disponible.', 'error');
         await syncRemoteData();
         showToast('Datos actualizados.');
       });
 
+      $('adminHotspot').addEventListener('click', handleAdminHotspotTap);
+      $('adminHotspot').addEventListener('touchstart', handleAdminHotspotTap, { passive: true });
+
       $('bookingForm').addEventListener('submit', async (e) => {
         e.preventDefault();
+
         const block = blockSelect.value;
         const floor = floorSelect.value;
         const door = doorSelect.value;
         const error = validateBooking(block, floor, door, selectedSlotISO);
+
         if (error) return showToast(error, 'error');
+
         try {
           await addBooking(block, floor, door, selectedSlotISO);
           showToast('Reserva confirmada. ¡Nos vemos en la pista! 🎾');
@@ -750,6 +775,11 @@ La contraseña de administrador sigue en el código para simplicidad. Si luego q
       restoreSavedUrl();
       applyAdminSession();
       await connectSupabase();
+
+      if (window.location.hash === '#admin') {
+        showAdminCard();
+      }
+
       setInterval(() => {
         updateNowBox();
         renderSlots();
