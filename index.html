@@ -262,16 +262,20 @@ Este software está protegido por la legislación de propiedad intelectual.
   <footer class="mt-12 pb-8">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="glass rounded-3xl px-6 py-6 text-center text-xs sm:text-sm text-slate-600">
+
         <p class="font-semibold text-slate-800 tracking-wide">
           Aplicación privada · Mar Jónica 1
         </p>
+
         <p class="mt-2">
           © 2026 <span class="font-semibold text-slate-700">Acuriel</span>. Todos los derechos reservados.
         </p>
+
         <p class="mt-2 text-slate-500 leading-relaxed max-w-2xl mx-auto">
           El diseño, código fuente y funcionalidades de esta aplicación están protegidos por la normativa vigente de propiedad intelectual.
           Queda prohibida su reproducción, distribución o reutilización total o parcial sin autorización expresa del titular.
         </p>
+
       </div>
     </div>
   </footer>
@@ -492,7 +496,10 @@ Este software está protegido por la legislación de propiedad intelectual.
               <div class="text-lg font-black text-slate-900">${formatDateHuman(b.fecha)} · ${b.hora}</div>
               <div class="text-sm text-slate-600 mt-1">🏠 ${formatHome(b.bloque, normalizeFloor(b.piso), b.puerta)}</div>
             </div>
-            <button data-id="${b.id}" data-home="${formatHome(b.bloque, normalizeFloor(b.piso), b.puerta)}" class="manage-booking rounded-xl bg-slate-100 text-slate-700 px-3 py-2 text-xs font-bold hover:bg-slate-200 transition">
+            <button
+              data-id="${b.id}"
+              data-home="${formatHome(b.bloque, normalizeFloor(b.piso), b.puerta)}"
+              class="manage-booking rounded-xl bg-slate-100 text-slate-700 px-3 py-2 text-xs font-bold hover:bg-slate-200 transition">
               Gestionar mi reserva
             </button>
           </div>
@@ -501,7 +508,7 @@ Este software está protegido por la legislación de propiedad intelectual.
 
       document.querySelectorAll('.manage-booking').forEach(btn => {
         btn.addEventListener('click', () => {
-          bookingToManageId = Number(btn.getAttribute('data-id'));
+          bookingToManageId = btn.getAttribute('data-id');
           manageBookingText.textContent = `Reserva de ${btn.getAttribute('data-home')}. Introduce el PIN para anularla.`;
           manageBookingPin.value = '';
           manageBookingModal.classList.remove('hidden');
@@ -545,9 +552,9 @@ Este software está protegido por la legislación de propiedad intelectual.
       if (!supabaseClient) return 'La app no ha podido conectar con la base de datos.';
       if (!slotISO) return 'Debes seleccionar una hora.';
       if (!block || !floor || !door) return 'Debes completar bloque, piso y puerta.';
+      if (!/^\d{4}$/.test(homePinInput.value.trim())) return 'Introduce un PIN de 4 dígitos.';
       if (block === 'D' && (floor === '2' || floor === 'At.') && !['1', '2'].includes(door)) return 'En el bloque D, plantas 2 y At. solo admiten puerta 1 o 2.';
       if (!homeIsAuthorized(block, floor, door)) return 'La vivienda indicada no figura entre las viviendas autorizadas.';
-      if (!homeIsBlocked(block, floor, door)) {}
       if (homeIsBlocked(block, floor, door)) return 'Esta vivienda está bloqueada por administración y no puede reservar.';
 
       const [dateString, time] = slotISO.split('T');
@@ -796,7 +803,9 @@ Este software está protegido por la legislación de propiedad intelectual.
     }
 
     async function cancelBookingWithPin() {
-      if (!bookingToManageId) return showToast('Reserva no válida.', 'error');
+      if (!bookingToManageId || typeof bookingToManageId !== 'string') {
+        return showToast('Reserva no válida.', 'error');
+      }
 
       const pin = manageBookingPin.value.trim();
       if (!/^\d{4}$/.test(pin)) return showToast('Introduce un PIN de 4 dígitos.', 'error');
@@ -861,7 +870,6 @@ Este software está protegido por la legislación de propiedad intelectual.
         const error = validateBooking(block, floor, door, selectedSlotISO);
 
         if (error) return showToast(error, 'error');
-        if (!/^\d{4}$/.test(pin)) return showToast('Introduce un PIN de 4 dígitos.', 'error');
 
         try {
           await addBookingWithPin(block, floor, door, selectedSlotISO, pin);
