@@ -860,25 +860,49 @@ Este software está protegido por la legislación de propiedad intelectual.
       $('adminHotspot').addEventListener('click', handleAdminHotspotTap);
       $('adminHotspot').addEventListener('touchstart', handleAdminHotspotTap, { passive: true });
 
-      $('bookingForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
+     $('bookingForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
 
-        const block = blockSelect.value;
-        const floor = floorSelect.value;
-        const door = doorSelect.value;
-        const pin = homePinInput.value.trim();
-        const error = validateBooking(block, floor, door, selectedSlotISO);
+  const block = blockSelect.value;
+  const floor = floorSelect.value;
+  const door = doorSelect.value;
+  const pin = homePinInput.value.trim();
 
-        if (error) return showToast(error, 'error');
+  const viviendaKey = `pinIntentos:${homeKey(block, floor, door)}`;
+  const MAX_INTENTOS = 3;
+  const BLOQUEO_MS = 5 * 60 * 1000; // 5 minutos
 
-        try {
-          await addBookingWithPin(block, floor, door, selectedSlotISO, pin);
-          showToast('Reserva confirmada. ¡Nos vemos en la pista! 🎾');
-          clearSelection();
-        } catch (err) {
-          showToast(err?.message || 'No se pudo guardar la reserva.', 'error');
-        }
-      });
+  const intentoData = JSON.parse(localStorage.getItem(viviendaKey) || '{}');
+  const ahora = Date.now();
+
+  if (intentoData.bloqueadoHasta && ahora < intentoData.bloqueadoHasta) {
+    return showToast('Vivienda bloqueada, intenta más tarde con PIN correcto', 'error');
+  }
+
+  const error = validateBooking(block, floor, door, selectedSlotISO);
+
+  if (error) return showToast(error, 'error');
+
+  try {
+    await addBookingWithPin(block, floor, door, selectedSlotISO, pin);
+    localStorage.removeItem(viviendaKey);
+    showToast('Reserva confirmada. ¡Nos vemos en la pista! 🎾');
+    clearSelection();
+  } catch (err) {
+    let intentoData = JSON.parse(localStorage.getItem(viviendaKey) || '{}');
+    intentoData.intentos = (intentoData.intentos || 0) + 1;
+
+    if (intentoData.intentos >= MAX_INTENTOS) {
+      intentoData.bloqueadoHasta = Date.now() + BLOQUEO_MS;
+      intentoData.intentos = 0;
+      localStorage.setItem(viviendaKey, JSON.stringify(intentoData));
+      return showToast('Vivienda bloqueada, intenta más tarde con PIN correcto', 'error');
+    }
+
+    localStorage.setItem(viviendaKey, JSON.stringify(intentoData));
+    showToast(err?.message || 'PIN incorrecto.', 'error');
+  }
+});
     }
 
     async function init() {
