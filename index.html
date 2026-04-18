@@ -802,9 +802,13 @@ Este software está protegido por la legislación de propiedad intelectual.
       manageBookingModal.classList.remove('flex');
     }
 
-    async function cancelBookingWithPin() {
+async function cancelBookingWithPin() {
   if (!bookingToManageId || typeof bookingToManageId !== 'string') {
     return showToast('Reserva no válida.', 'error');
+  }
+
+  if (!supabaseClient) {
+    return showToast('La conexión no está disponible.', 'error');
   }
 
   const booking = bookingsCache.find(b => String(b.id) === String(bookingToManageId));
@@ -812,7 +816,11 @@ Este software está protegido por la legislación de propiedad intelectual.
     return showToast('No se ha encontrado la reserva.', 'error');
   }
 
-  const viviendaKey = `pinIntentos:${homeKey(booking.bloque, normalizeFloor(booking.piso), booking.puerta)}`;
+  const block = String(booking.bloque).trim().toUpperCase();
+  const floor = normalizeFloor(booking.piso);
+  const door = String(booking.puerta).trim();
+
+  const viviendaKey = `pinIntentos:${homeKey(block, floor, door)}`;
   const MAX_INTENTOS = 3;
   const BLOQUEO_MS = 5 * 60 * 1000; // 5 minutos
 
@@ -824,14 +832,36 @@ Este software está protegido por la legislación de propiedad intelectual.
   }
 
   const pin = manageBookingPin.value.trim();
-  if (!/^\d{4}$/.test(pin)) return showToast('Introduce un PIN de 4 dígitos.', 'error');
+  if (!/^\d{4}$/.test(pin)) {
+    return showToast('Introduce un PIN de 4 dígitos.', 'error');
+  }
 
-  const { error } = await supabaseClient.rpc('cancel_booking_with_pin', {
-    p_booking_id: bookingToManageId,
-    p_pin: pin
-  });
+  try {
+    const { error } = await supabaseClient.rpc('cancel_booking_with_pin', {
+      p_booking_id: bookingToManageId,
+      p_pin: pin
+    });
 
-  if (error) {
+    if (error) {
+      let intentoData = JSON.parse(localStorage.getItem(viviendaKey) || '{}');
+      intentoData.intentos = (intentoData.intentos || 0) + 1;
+
+      if (intentoData.intentos >= MAX_INTENTOS) {
+        intentoData.bloqueadoHasta = Date.now() + BLOQUEO_MS;
+        intentoData.intentos = 0;
+        localStorage.setItem(viviendaKey, JSON.stringify(intentoData));
+        return showToast('Vivienda bloqueada, intenta más tarde con PIN correcto', 'error');
+      }
+
+      localStorage.setItem(viviendaKey, JSON.stringify(intentoData));
+      return showToast(error.message || 'PIN incorrecto.', 'error');
+    }
+
+    localStorage.removeItem(viviendaKey);
+    closeManageBookingModal();
+    await syncRemoteData();
+    showToast('Reserva anulada correctamente.');
+  } catch (err) {
     let intentoData = JSON.parse(localStorage.getItem(viviendaKey) || '{}');
     intentoData.intentos = (intentoData.intentos || 0) + 1;
 
@@ -843,13 +873,8 @@ Este software está protegido por la legislación de propiedad intelectual.
     }
 
     localStorage.setItem(viviendaKey, JSON.stringify(intentoData));
-    return showToast(error.message || 'PIN incorrecto.', 'error');
+    return showToast(err?.message || 'PIN incorrecto.', 'error');
   }
-
-  localStorage.removeItem(viviendaKey);
-  closeManageBookingModal();
-  await syncRemoteData();
-  showToast('Reserva anulada correctamente.');
 }
 
     function attachEvents() {
