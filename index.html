@@ -9,7 +9,7 @@ o reutilización total o parcial del código sin autorización expresa.
 
 Este software está protegido por la legislación de propiedad intelectual.
 -->
-<!-- test logos -->
+<!-- test logos y splash -->
 <html lang="es">
 <head>
     <meta charset="UTF-8" />
@@ -33,6 +33,7 @@ Este software está protegido por la legislación de propiedad intelectual.
       border: 1px solid rgba(255,255,255,0.7);
       box-shadow: 0 10px 30px rgba(15,23,42,0.08);
     }
+
     .slot-btn:disabled { cursor: not-allowed; opacity: 0.55; }
     .big-emoji { font-size: clamp(2rem, 6vw, 4rem); line-height: 1; }
 
@@ -48,6 +49,26 @@ Este software está protegido por la legislación de propiedad intelectual.
       user-select: none;
       -webkit-tap-highlight-color: transparent;
     }
+
+    #splash {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: #020617;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      opacity: 1;
+    }
+
+    #splash img {
+      width: 220px;
+      max-width: 70vw;
+    }
+
   </style>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -71,6 +92,9 @@ Este software está protegido por la legislación de propiedad intelectual.
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="text-slate-800">
+  <div id="splash">
+    <img src="splash.png" alt="Cargando..." />
+  </div>
   <div class="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
     <header class="glass rounded-3xl p-6 md:p-8 mb-6">
       <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
@@ -1004,5 +1028,21 @@ async function cancelBookingWithPin() {
 
     init();
   </script>
+
+  <script>
+    window.addEventListener("load", () => {
+      const splash = document.getElementById("splash");
+      if (!splash) return;
+
+      setTimeout(() => {
+        splash.style.opacity = "0";
+        splash.style.transition = "opacity 0.6s ease";
+        setTimeout(() => {
+          splash.style.display = "none";
+        }, 350);
+      }, 1200);
+    });
+  </script>
+
 </body>
 </html>
