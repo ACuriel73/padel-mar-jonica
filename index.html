@@ -429,7 +429,7 @@ Este software está protegido por la legislación de propiedad intelectual.
     function isSlotWithinAllowedRange(dateObj) {
       const now = new Date();
       const diff = dateObj.getTime() - now.getTime();
-      return diff > 0 && diff <= 24 * 60 * 60 * 1000;
+      return diff > 0 && diff <= 36 * 60 * 60 * 1000;
     }
 
     function homeIsAuthorized(block, floor, door) {
